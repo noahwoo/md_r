@@ -1,0 +1,21 @@
+{
+    "collab_server" : "",
+    "contents" : "a <- read.table(\"~/lost.txt\")\nb <- read.table(\"~/reten.txt\")\n\n\nage1 <- c(68,\n        53,\n        82,\n        65,\n        53,\n        58,\n        61,\n        52,\n        67,\n        78,\n        64,\n        62,\n        57,\n        54,\n        61,\n        47)\n\nage2 <- c(53,\n          48,\n          64,\n          71,\n          52,\n          51,\n          74,\n          66)\n\nt.test(age1, age2)\n\nt1 <- c(4,\n        4,\n        3,\n        3,\n        2,\n        4,\n        3,\n        4,\n        2,\n        4,\n        4,\n        4,\n        3,\n        3,\n        4,\n        4)\nt2 <- c(4,\n        2,\n        3,\n        2,\n        3,\n        4,\n        4,\n        4)\n\nt.test(t1, t2)\n\n# V1 低俗\n# V2 点击\na$V1[a$V1>0] <- 1\na$V2[a$V2>0] <- 1\nb$V1[b$V1>0] <- 1\nb$V2[b$V2>0] <- 1\n\nca <- a$V1 + 2*a$V2\ncb <- b$V1 + 2*b$V2\n\nca <- as.factor(ca)\ncb <- as.factor(cb)\n\nsa <- summary(ca)\nsb <- summary(cb)\n\nsa <- sa/sum(sa) # lost\nsb <- sb/sum(sb) # retention\nnames(sa) <- c(\"nosex-noclk\",\"sex-noclk\",\"nosex-clk\",\"sex-clk\")\n\nmat <- rbind(lost=sa, retention=sb)\nmat\n\n# t-test of retention\n# chisq\na <- rbind(c(0.5, 0.3, 0.8, 0.9), c(0.4, 0.2, 0.6, 0.4))\nchisq.test(a)\n\nb <- 100*a\nchisq.test(b)\n\nc <- 1000*a\nchisq.test(c)\n\nsum <- 0\nfor(k in seq(1:730)) {\n  sum = sum + 30.957*k^(-0.392)\n}\nsum/100\n\n30.957*730^(-0.392)/100\n\nsum <- 0\nfor(k in seq(1:730)) {\n  sum = sum + 26.546*k^(-0.385)\n}\nsum/100\n\n30.957*517^(-0.392)/100\n\nsum <- 0\nfor(k in seq(1:730)) {\n  sum = sum + 27.315*k^(-0.392)\n}\nsum/100\n\n26.609*730^(-0.429)/100\n\nsum <- 0\nfor(k in seq(1:517)) {\n  sum = sum + 27.315*k^(-0.392)\n}\nsum/100\n\n26.609*517^(-0.429)/100\n\n24.4*0.18\n\n\ns <- c(0, 9)\nv <- c(0, 14)\nt.test(s,v)\n       ",
+    "created" : 1531878531852.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "476051302",
+    "id" : "4C71A623",
+    "lastKnownWriteTime" : 1523253136,
+    "last_content_update" : 1523253136,
+    "path" : "~/Code/md_thesis/playground.R",
+    "project_path" : "playground.R",
+    "properties" : {
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 5,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
