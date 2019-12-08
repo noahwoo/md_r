@@ -44,3 +44,86 @@ roc_suite <- function(target, pred) {
        ci_lb=ci[1][[1]], ci_ub=ci[3][[1]], 
        ptar=as.factor(pred>cutoff))
 }
+
+
+run_nfold <- function(formula, data, target = 'y', method = 'LR', nfold = 10, 
+                      svm.cost = 1.0, 
+                      dt.minsplit = 10, dt.cp = 0.01) {
+  # split nfold
+  nrow <- nrow(data)
+  if( nfold > nrow) {
+    stop(sprintf('nfold=[%d] should be l.e. nrow=[%d]', nfold, nrow))
+  }
+  
+  row_idx <- 1:nrow
+  fold_split <- split(row_idx, sort(row_idx %% nfold))
+  
+  pred_glob   <- c()
+  target_glob <- c()
+  for (k in 1:nfold) {
+    data_tst <- data[unlist(fold_split[k]), ]
+    data_trn <- data[unlist(fold_split[-k]), ]
+    pred <- c()
+    if (method == 'LR') {
+      fit  <- glm(formula, family=binomial(link = "logit"), data_trn)
+      pred <- predict(fit, newdata = data_tst, type=c("response"))
+    } else if (method == 'DT') {
+      fit  <- rpart(formula, data = data_trn, method = "class", 
+                    control = rpart.control(minsplit = dt.minsplit, cp=dt.cp))
+      pred <- predict(fit, data_tst)[, 2]
+    } else if (method == 'SVM') {
+      fit  <- svm(formula, kernel = 'linear', probability = TRUE, cost = svm.cost, data_trn)
+      pred <- attr(predict(fit, newdata = data_tst, type=c("response"), probability = TRUE), 
+                   'probabilities')[, 2]
+    } else {
+      stop(sprintf('Non-supported Algorithm: [%s]', method))
+    }
+    
+    pred_glob <- c(pred_glob, pred)
+    target_glob <- c(target_glob, data_tst[[target]])
+  }
+  
+  # calculate auc
+  roc <- prediction(pred_glob, target_glob)
+  auc <- performance(roc, "auc")@y.values[[1]]
+  
+  auc
+}
+
+cross_validate <- function(formula, data, target = 'y', method = 'LR', nfold = 10, 
+                           svm.cost = c(1.0), # more svm hyper-params here
+                           dt.minsplit = c(10), dt.cp = c(0.01) # more dt hyper-params here
+                           ) {
+  max_auc <- 0
+  opt_param <- list(svm.cost = svm.cost[1], 
+                    dt.minsplit = dt.minsplit[1], dt.cp = dt.cp[1], 
+                    auc = max_auc)
+  
+  if (method == 'SVM') {
+    for(c in svm.cost) {
+      auc <- run_nfold(formula, data, target = target, method = method, nfold = nfold, svm.cost = c)
+      if (auc > max_auc) {
+        max_auc <- auc
+        opt_param[['svm.cost']] <- c
+      }
+    }
+  } else if (method == 'DT') {
+    for (ms in dt.minsplit) {
+      for (cp in dt.cp) {
+        auc <- run_nfold(formula, data, target = target, method = method, nfold = nfold, 
+                         dt.minsplit = ms, dt.cp = cp)
+        if (auc > max_auc) {
+          max_auc <- auc
+          opt_param[['dt.minsplit']] <- ms
+          opt_param[['dt.cp']] <- cp
+        }
+      }
+    }
+  } else {
+    stop(sprintf('Non-supported Algorithm: [%s]', method))
+  }
+  opt_param[['auc']] <- max_auc
+  
+  opt_param
+}
+

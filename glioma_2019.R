@@ -44,6 +44,7 @@ read_txt <- function(dat_path, p) {
   ret <- list("names" = names, "vals" = vals)
 }
 
+### start of main
 param_set <- c('D', 'K', 'R', 'S')
 cases <- c(2:86,88)
 
@@ -160,22 +161,33 @@ roc_suite(dki_trn$Gold, dki_trn$TBR_SUVpeak)
 roc_suite(dki_trn$Gold, dki_trn$TBR_MD)
 roc_suite(dki_trn$Gold, -dki_trn$TBR_MK)
 
+### formulas for learning
+formula_suv  <- formula(Gold ~ TBR_SUVmax + TBR_SUVpeak + 
+                         Median_SUV + Skewness_SUV + Kurtosis_SUV + Stddev_SUV + Entropy_SUV + Mean_SUV + Min_SUV)
+formula_dki  <- formula(Gold ~ TBR_MK + TBR_MD + 
+                         Median_MK + Skewness_MK + Kurtosis_MK + Stddev_MK + Entropy_MK + Mean_MK + Min_MK + 
+                         Median_MD + Skewness_MD + Kurtosis_MD + Stddev_MD + Entropy_MD + Mean_MD + Min_MD)
+formula_dki0 <- formula(Gold ~ TBR_MK + TBR_MD)
+
+formula_comb <- formula(Gold ~ TBR_SUVmax + TBR_SUVpeak + 
+                          Median_SUV + Skewness_SUV + Kurtosis_SUV + Stddev_SUV + Entropy_SUV + Mean_SUV + Min_SUV +
+                          TBR_MK + TBR_MD + 
+                          Median_MK + Skewness_MK + Kurtosis_MK + Stddev_MK + Entropy_MK + Mean_MK + Min_MK + 
+                          Median_MD + Skewness_MD + Kurtosis_MD + Stddev_MD + Entropy_MD + Mean_MD + Min_MD) 
 ### lr
 # SUV params
-fit_lr <- glm(Gold ~ TBR_SUVmax + TBR_SUVpeak + 
-                Median_SUV + Skewness_SUV + Kurtosis_SUV + Stddev_SUV + Entropy_SUV + Mean_SUV + Min_SUV, 
-              family=binomial(link = "logit"), dki_trn)
+
+fit_lr <- glm(formula_suv, family=binomial(link = "logit"), dki_trn)
 trn_suv_pred_lr <- predict(fit_lr, newdata = dki_trn, type=c("response"))
 trn_suv_roc_lr  <- roc_suite(dki_trn$Gold, trn_suv_pred_lr)
 
 tst_suv_pred_lr <- predict(fit_lr, newdata = dki_tst, type=c("response"))
 tst_suv_roc_lr  <- roc_suite(dki_tst$Gold, tst_suv_pred_lr)
 
+auc <- run_nfold(formula_suv, dki_txt, target = "Gold", method = "LR", nfold = 5)
+
 # DKI params
-fit_lr <- glm(Gold ~ TBR_MK + TBR_MD,  # + 
-                # Median_MK + Skewness_MK + Kurtosis_MK + Stddev_MK + Entropy_MK + Mean_MK + Min_MK + 
-                # Median_MD + Skewness_MD + Kurtosis_MD + Stddev_MD + Entropy_MD + Mean_MD + Min_MD, 
-              family=binomial(link = "logit"), dki_trn)
+fit_lr <- glm(formula_dki0, family=binomial(link = "logit"), dki_trn)
 trn_dki_pred_lr <- predict(fit_lr, newdata = dki_trn, type=c("response"))
 trn_dki_roc_lr  <- roc_suite(dki_trn$Gold, trn_dki_pred_lr)
 
@@ -183,23 +195,28 @@ tst_dki_pred_lr <- predict(fit_lr, newdata = dki_tst, type=c("response"))
 tst_dki_roc_lr  <- roc_suite(dki_tst$Gold, tst_dki_pred_lr)
 
 # combined params
+fit_lr <- glm(formula_comb, family=binomial(link = "logit"), dki_trn)
+trn_comb_pred_lr <- predict(fit_lr, newdata = dki_trn, type=c("response"))
+trn_comb_roc_lr  <- roc_suite(dki_trn$Gold, trn_comb_pred_lr)
+
+tst_comb_pred_lr <- predict(fit_lr, newdata = dki_tst, type=c("response"))
+tst_comb_roc_lr  <- roc_suite(dki_tst$Gold, tst_comb_pred_lr)
 
 ### svm
 # SUV params
-fit_svm <- svm(Gold ~ TBR_SUVmax + TBR_SUVpeak + 
-                Median_SUV + Skewness_SUV + Kurtosis_SUV + Stddev_SUV + Entropy_SUV + Mean_SUV + Min_SUV, 
-              kernel = 'linear', probability = TRUE, cost = 4.0, dki_trn)
+fit_svm <- svm(formula_suv, kernel = 'linear', probability = TRUE, cost = 4.0, dki_trn)
 trn_suv_pred_svm <- predict(fit_svm, newdata = dki_trn, type=c("response"), probability = TRUE)
 trn_suv_roc_svm  <- roc_suite(dki_trn$Gold, attr(trn_suv_pred_svm, 'probabilities')[,2])
 
 tst_suv_pred_svm <- predict(fit_svm, newdata = dki_tst, type=c("response"), probability = TRUE)
 tst_suv_roc_svm  <- roc_suite(dki_tst$Gold, attr(tst_suv_pred_svm, 'probabilities')[,2])
 
+auc <- run_nfold(formula_suv, dki_txt, target = "Gold", method = "SVM", nfold = 5, svm.cost = 1.0)
+opt_param_svm <- cross_validate(formula_suv, dki_txt, target = "Gold", method = "SVM", 
+                                nfold = 10, svm.cost = c(0.1, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4))
+
 # DKI params
-fit_svm <- svm(Gold ~ TBR_MK + TBR_MD + 
-              Median_MK + Skewness_MK + Kurtosis_MK + Stddev_MK + Entropy_MK + Mean_MK + Min_MK + 
-              Median_MD + Skewness_MD + Kurtosis_MD + Stddev_MD + Entropy_MD + Mean_MD + Min_MD, 
-              kernel = 'linear', probability = TRUE, cost = 0.1, dki_trn)
+fit_svm <- svm(formula_dki, kernel = 'linear', probability = TRUE, cost = 0.1, dki_trn)
 trn_dki_pred_svm <- predict(fit_svm, newdata = dki_trn, type=c("response"), probability = TRUE)
 trn_dki_roc_svm  <- roc_suite(dki_trn$Gold, attr(trn_dki_pred_svm, 'probabilities')[,2])
 
@@ -207,12 +224,26 @@ tst_dki_pred_svm <- predict(fit_svm, newdata = dki_tst, type=c("response"), prob
 tst_dki_roc_svm  <- roc_suite(dki_tst$Gold, attr(tst_dki_pred_svm, 'probabilities')[,2])
 
 # combined params
+opt_param_svm <- cross_validate(formula_comb, dki_txt, target = "Gold", method = "SVM", 
+                                nfold = 10, svm.cost = c(0.1, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4))
+
+fit_svm <- svm(formula_comb, kernel = 'linear', probability = TRUE, cost = opt_param_svm[['svm.cost']], dki_trn)
+trn_comb_pred_svm <- predict(fit_svm, newdata = dki_trn, type=c("response"), probability = TRUE)
+trn_comb_roc_svm  <- roc_suite(dki_trn$Gold, attr(trn_comb_pred_svm, 'probabilities')[,2])
+
+tst_comb_pred_svm <- predict(fit_svm, newdata = dki_tst, type=c("response"), probability = TRUE)
+tst_comb_roc_svm  <- roc_suite(dki_tst$Gold, attr(tst_comb_pred_svm, 'probabilities')[,2])
+
+auc <- run_nfold(formula_suv, dki_txt, target = "Gold", method = "SVM", nfold = 5, svm.cost = 1.0)
 
 ### dt(decision tree)
 # SUV params
-fit_dt <- rpart(Gold ~ TBR_SUVmax + TBR_SUVpeak + 
-                Median_SUV + Skewness_SUV + Kurtosis_SUV + Stddev_SUV + Entropy_SUV + Mean_SUV + Min_SUV, 
-                data = dki_trn, method = "class", control = rpart.control(minsplit = 10, cp=0.01))
+opt_param_dt <- cross_validate(formula_suv, dki_txt, target = "Gold", method = "DT", 
+                               nfold = 10, dt.minsplit = c(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14), 
+                               dt.cp = c(0.001, 0.005, 0.01, 0.02, 0.03))
+
+fit_dt <- rpart(formula_suv, data = dki_trn, method = "class", 
+                control = rpart.control(minsplit = opt_param_dt[['dt.minsplit']], cp=opt_param_dt[['dt.cp']]))
 
 trn_suv_pred_dt <- predict(fit_dt, dki_trn)[, 2]
 trn_suv_roc_dt  <- roc_suite(dki_trn$Gold, trn_suv_pred_dt)
@@ -220,11 +251,11 @@ trn_suv_roc_dt  <- roc_suite(dki_trn$Gold, trn_suv_pred_dt)
 tst_suv_pred_dt <- predict(fit_dt, dki_tst)[, 2]
 tst_suv_roc_dt  <- roc_suite(dki_tst$Gold, tst_suv_pred_dt)
 
+auc <- run_nfold(formula_suv, dki_txt, target = "Gold", method = "DT", nfold = 10, 
+                 dt.minsplit = 10, dt.cp = 0.01)
+
 # DKI params
-fit_dt <- rpart(Gold ~ TBR_MK + TBR_MD + 
-              Median_MK + Skewness_MK + Kurtosis_MK + Stddev_MK + Entropy_MK + Mean_MK + Min_MK + 
-              Median_MD + Skewness_MD + Kurtosis_MD + Stddev_MD + Entropy_MD + Mean_MD + Min_MD, 
-              data = dki_trn, method = "class", control = rpart.control(minsplit = 10, cp=0.01))
+fit_dt <- rpart(formula_dki, data = dki_trn, method = "class", control = rpart.control(minsplit = 10, cp=0.01))
 trn_dki_pred_dt <- predict(fit_dt, dki_trn)[, 2]
 trn_dki_roc_dt  <- roc_suite(dki_trn$Gold, trn_dki_pred_dt)
 
@@ -232,3 +263,15 @@ tst_dki_pred_dt <- predict(fit_dt, dki_tst)[, 2]
 tst_dki_roc_dt  <- roc_suite(dki_tst$Gold, tst_dki_pred_dt)
 
 # combined params
+opt_param_dt <- cross_validate(formula_comb, dki_txt, target = "Gold", method = "DT", 
+                               nfold = 10, dt.minsplit = c(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14), 
+                               dt.cp = c(0.001, 0.005, 0.01, 0.02, 0.03))
+
+fit_dt <- rpart(formula_comb, data = dki_trn, method = "class", 
+                control = rpart.control(minsplit = opt_param_dt[['dt.minsplit']], cp=opt_param_dt[['dt.cp']]))
+trn_comb_pred_dt <- predict(fit_dt, dki_trn)[, 2]
+trn_comb_roc_dt  <- roc_suite(dki_trn$Gold, trn_comb_pred_dt)
+
+tst_comb_pred_dt <- predict(fit_dt, dki_tst)[, 2]
+tst_comb_roc_dt  <- roc_suite(dki_tst$Gold, tst_comb_pred_dt)
+
